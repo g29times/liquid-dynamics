@@ -216,39 +216,44 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
   const handleMouseDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    const el = containerRef.current;
+    if (!el) return;
+
     setIsDragging(true);
     setAnimationClass('animate-liquid-press');
-    
+
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    
-    // Store the offset from click position to element position
+
+    // Store pointer offset *within the element* (viewport-based)
+    const elRect = el.getBoundingClientRect();
     dragStartRef.current = {
-      x: clientX - position.x,
-      y: clientY - position.y,
+      x: clientX - elRect.left,
+      y: clientY - elRect.top,
     };
-    
+
     // Trigger wobbles while pressed - these will be liquid-drag-wobbles
     setTimeout(() => triggerWobble(3, true), 150);
-  }, [position, triggerWobble]);
+  }, [triggerWobble]);
 
   const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!isDragging || !containerRef.current) return;
-    
+
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    
+
     const parentRect = containerRef.current.parentElement?.getBoundingClientRect();
     if (!parentRect) return;
-    
-    // Calculate new position relative to parent, accounting for initial click offset
-    const newX = clientX - dragStartRef.current.x;
-    const newY = clientY - dragStartRef.current.y;
-    
+
+    // Convert viewport pointer coords to parent-local coords, then subtract pointer-in-element offset
+    const newX = clientX - parentRect.left - dragStartRef.current.x;
+    const newY = clientY - parentRect.top - dragStartRef.current.y;
+
     // Clamp to parent bounds
     const clampedX = Math.max(0, Math.min(parentRect.width - width, newX));
     const clampedY = Math.max(0, Math.min(parentRect.height - height, newY));
-    
+
     setPosition({ x: clampedX, y: clampedY });
   }, [isDragging, width, height]);
 
