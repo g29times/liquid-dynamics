@@ -6,7 +6,6 @@ interface LiquidGlassProps {
   initialX?: number;
   initialY?: number;
   refractionScale?: number;
-  magnifyScale?: number;
   specularOpacity?: number;
   saturation?: number;
 }
@@ -14,7 +13,6 @@ interface LiquidGlassProps {
 // Helper to check if point is inside capsule and get distance info
 const getCapsuleInfo = (x: number, y: number, width: number, height: number) => {
   const borderRadius = height / 2;
-  const centerX = width / 2;
   const centerY = height / 2;
   
   let isInside = false;
@@ -22,50 +20,42 @@ const getCapsuleInfo = (x: number, y: number, width: number, height: number) => 
   let normalX = 0;
   let normalY = 0;
   
-  // Left semicircle
-  if (x < borderRadius) {
-    const dx = x - borderRadius;
-    const dy = y - centerY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist <= borderRadius && dist > 0) {
-      isInside = true;
-      distFromEdge = (borderRadius - dist) / borderRadius;
-      normalX = dx / dist;
-      normalY = dy / dist;
-    } else if (dist === 0) {
-      isInside = true;
-      distFromEdge = 1;
-    }
-  }
-  // Right semicircle
-  else if (x > width - borderRadius) {
-    const dx = x - (width - borderRadius);
-    const dy = y - centerY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist <= borderRadius && dist > 0) {
-      isInside = true;
-      distFromEdge = (borderRadius - dist) / borderRadius;
-      normalX = dx / dist;
-      normalY = dy / dist;
-    } else if (dist === 0) {
-      isInside = true;
-      distFromEdge = 1;
-    }
-  }
-  // Middle rectangle
-  else {
-    const distFromTop = y;
-    const distFromBottom = height - y;
-    if (distFromTop >= 0 && distFromBottom >= 0) {
-      isInside = true;
-      const minDist = Math.min(distFromTop, distFromBottom);
-      distFromEdge = minDist / borderRadius;
-      normalX = 0;
-      normalY = distFromTop < distFromBottom ? -1 : 1;
+  // Calculate distance to capsule edge
+  // A capsule is a rectangle with semicircles on each end
+  
+  // Clamp x to the rectangular portion to find nearest point on centerline
+  const clampedX = Math.max(borderRadius, Math.min(width - borderRadius, x));
+  
+  // Distance from centerline
+  const dx = x - clampedX;
+  const dy = y - centerY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  
+  if (dist <= borderRadius) {
+    isInside = true;
+    distFromEdge = (borderRadius - dist) / borderRadius;
+    
+    if (dist > 0.001) {
+      // In the semicircular ends or near top/bottom edges
+      if (x < borderRadius || x > width - borderRadius) {
+        // In semicircular ends - normal points outward from semicircle center
+        const semicircleCenter = x < borderRadius ? borderRadius : width - borderRadius;
+        const sdx = x - semicircleCenter;
+        const sdy = y - centerY;
+        const sdist = Math.sqrt(sdx * sdx + sdy * sdy);
+        if (sdist > 0.001) {
+          normalX = sdx / sdist;
+          normalY = sdy / sdist;
+        }
+      } else {
+        // In rectangular middle - normal points up or down
+        normalX = 0;
+        normalY = dy > 0 ? 1 : -1;
+      }
     }
   }
   
-  return { isInside, distFromEdge: Math.min(1, distFromEdge), normalX, normalY, centerX, centerY };
+  return { isInside, distFromEdge: Math.min(1, distFromEdge), normalX, normalY, centerX: width / 2, centerY };
 };
 
 const LiquidGlass: React.FC<LiquidGlassProps> = ({
@@ -74,7 +64,6 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
   initialX = 180,
   initialY = 80,
   refractionScale = 100,
-  magnifyScale = 24,
   specularOpacity = 0.74,
   saturation = 16,
 }) => {
@@ -86,49 +75,8 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
   const filterId = useRef(`liquid-glass-filter-${Math.random().toString(36).substr(2, 9)}`);
   const wobbleIntervalRef = useRef<number | null>(null);
 
-  // Generate displacement map as data URL
+  // Generate combined displacement map (edge refraction + center magnification)
   const displacementMapUrl = useMemo(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return '';
-
-    // Fill with neutral gray first
-    ctx.fillStyle = 'rgb(128, 128, 128)';
-    ctx.fillRect(0, 0, width, height);
-
-    const imageData = ctx.getImageData(0, 0, width, height);
-    const data = imageData.data;
-
-    // Create capsule-shaped gradient for edge refraction
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const info = getCapsuleInfo(x, y, width, height);
-
-        if (info.isInside) {
-          // Edge factor - stronger refraction at edges, none at center
-          const edgeFactor = Math.pow(1 - info.distFromEdge, 2.5);
-          
-          // Use surface normal for more realistic refraction
-          const r = Math.round(128 + info.normalX * edgeFactor * 80);
-          const g = Math.round(128 + info.normalY * edgeFactor * 80);
-          
-          const idx = (y * width + x) * 4;
-          data[idx] = Math.max(0, Math.min(255, r));
-          data[idx + 1] = Math.max(0, Math.min(255, g));
-          data[idx + 2] = 128;
-          data[idx + 3] = 255;
-        }
-      }
-    }
-    
-    ctx.putImageData(imageData, 0, 0);
-    return canvas.toDataURL();
-  }, [width, height]);
-
-  // Generate magnifying map
-  const magnifyingMapUrl = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
@@ -137,27 +85,37 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
 
     const centerX = width / 2;
     const centerY = height / 2;
+    const radiusX = width / 2;
+    const radiusY = height / 2;
 
-    // Fill with neutral gray
+    // Fill with neutral gray first
     ctx.fillStyle = 'rgb(128, 128, 128)';
     ctx.fillRect(0, 0, width, height);
-    
+
     const imageData = ctx.getImageData(0, 0, width, height);
     const data = imageData.data;
 
-    // Create magnifying effect using same capsule shape as outer layer
+    // Create combined effect: edge refraction + center magnification
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const info = getCapsuleInfo(x, y, width, height);
 
         if (info.isInside) {
-          // Use the capsule's normal direction for magnification pull
-          // This ensures the effect follows the capsule contour, not a circle
-          const factor = Math.pow(info.distFromEdge, 0.5) * 0.25;
+          // Edge refraction - stronger at edges, uses surface normal
+          const edgeFactor = Math.pow(1 - info.distFromEdge, 2.5);
+          const edgeR = info.normalX * edgeFactor * 80;
+          const edgeG = info.normalY * edgeFactor * 80;
           
-          // Pull direction based on capsule normal (toward center along capsule shape)
-          const r = Math.round(128 - info.normalX * factor * 30);
-          const g = Math.round(128 - info.normalY * factor * 30);
+          // Center magnification - slight pull toward center, stronger in middle
+          const dx = (x - centerX) / radiusX;
+          const dy = (y - centerY) / radiusY;
+          const centerFactor = Math.pow(info.distFromEdge, 2) * 0.12;
+          const magR = -dx * centerFactor * 20;
+          const magG = -dy * centerFactor * 20;
+          
+          // Combine both effects
+          const r = Math.round(128 + edgeR + magR);
+          const g = Math.round(128 + edgeG + magG);
           
           const idx = (y * width + x) * 4;
           data[idx] = Math.max(0, Math.min(255, r));
@@ -361,31 +319,7 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
       >
         <defs>
           <filter id={filterId.current}>
-            {/* Magnifying displacement */}
-            <feImage
-              href={magnifyingMapUrl}
-              x="0"
-              y="0"
-              width={width}
-              height={height}
-              result="magnifying_displacement_map"
-              preserveAspectRatio="none"
-            />
-            <feDisplacementMap
-              in="SourceGraphic"
-              in2="magnifying_displacement_map"
-              scale={magnifyScale}
-              xChannelSelector="R"
-              yChannelSelector="G"
-              result="magnified_source"
-            />
-            <feGaussianBlur
-              in="magnified_source"
-              stdDeviation="0"
-              result="blurred_source"
-            />
-            
-            {/* Edge refraction displacement */}
+            {/* Combined displacement (edge refraction + center magnification) */}
             <feImage
               href={displacementMapUrl}
               x="0"
@@ -396,7 +330,7 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
               preserveAspectRatio="none"
             />
             <feDisplacementMap
-              in="blurred_source"
+              in="SourceGraphic"
               in2="displacement_map"
               scale={refractionScale}
               xChannelSelector="R"
