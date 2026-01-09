@@ -145,22 +145,19 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
     const imageData = ctx.getImageData(0, 0, width, height);
     const data = imageData.data;
 
-    // Create magnifying effect (pull pixels toward center)
+    // Create magnifying effect using same capsule shape as outer layer
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const info = getCapsuleInfo(x, y, width, height);
 
         if (info.isInside) {
-          // Pull toward center effect - stronger in center
-          const dx = (x - centerX) / (width / 2);
-          const dy = (y - centerY) / (height / 2);
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          
-          // Lens-like magnification: slight inward pull
+          // Use the capsule's normal direction for magnification pull
+          // This ensures the effect follows the capsule contour, not a circle
           const factor = Math.pow(info.distFromEdge, 0.5) * 0.25;
           
-          const r = Math.round(128 - dx * factor * 30);
-          const g = Math.round(128 - dy * factor * 30);
+          // Pull direction based on capsule normal (toward center along capsule shape)
+          const r = Math.round(128 - info.normalX * factor * 30);
+          const g = Math.round(128 - info.normalY * factor * 30);
           
           const idx = (y * width + x) * 4;
           data[idx] = Math.max(0, Math.min(255, r));
