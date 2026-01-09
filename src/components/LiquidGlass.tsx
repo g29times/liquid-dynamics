@@ -233,8 +233,8 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
       y: clientY - elRect.top,
     };
 
-    // Trigger wobbles while pressed - these will be liquid-drag-wobbles
-    setTimeout(() => triggerWobble(3, true), 150);
+    // Trigger wobbles while pressed - set to 0 to disable extra wobble
+    setTimeout(() => triggerWobble(0, true), 150);
   }, [triggerWobble]);
 
   const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
@@ -270,8 +270,8 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
       // Play release animation first
       setAnimationClass('animate-liquid-release');
       
-      // Then trigger wobbles after release animation
-      setTimeout(() => triggerWobble(3, false), 500);
+      // Then trigger wobbles after release animation (disabled here)
+      setTimeout(() => triggerWobble(0, false), 500);
     }
   }, [isDragging, triggerWobble]);
 
@@ -304,7 +304,7 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`absolute z-10 cursor-grab active:cursor-grabbing select-none touch-none ${animationClass}`}
+      className="absolute z-10 cursor-grab active:cursor-grabbing select-none touch-none"
       style={{
         width,
         height,
@@ -317,90 +317,92 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
       onTouchStart={handleMouseDown}
       draggable={false}
     >
-      {/* SVG Filter Definition */}
-      <svg 
-        colorInterpolationFilters="sRGB" 
-        style={{ display: 'none' }}
-      >
-        <defs>
-          <filter id={filterId.current}>
-            {/* Combined displacement (edge refraction + center magnification) */}
-            <feImage
-              href={displacementMapUrl}
-              x="0"
-              y="0"
-              width={width}
-              height={height}
-              result="displacement_map"
-              preserveAspectRatio="none"
-            />
-            <feDisplacementMap
-              in="SourceGraphic"
-              in2="displacement_map"
-              scale={refractionScale}
-              xChannelSelector="R"
-              yChannelSelector="G"
-              result="displaced"
-            />
-            
-            {/* Saturation boost for displaced content */}
-            <feColorMatrix
-              in="displaced"
-              type="saturate"
-              result="displaced_saturated"
-              values={saturation.toString()}
-            />
-            
-            {/* Specular highlight layer */}
-            <feImage
-              href={specularMapUrl}
-              x="0"
-              y="0"
-              width={width}
-              height={height}
-              result="specular_layer"
-              preserveAspectRatio="none"
-            />
-            <feComposite
-              in="displaced_saturated"
-              in2="specular_layer"
-              operator="in"
-              result="specular_saturated"
-            />
-            <feComponentTransfer in="specular_layer" result="specular_faded">
-              <feFuncA type="linear" slope={specularOpacity} />
-            </feComponentTransfer>
-            
-            {/* Blend layers */}
-            <feBlend
-              in="specular_saturated"
-              in2="displaced"
-              mode="normal"
-              result="withSaturation"
-            />
-            <feBlend
-              in="specular_faded"
-              in2="withSaturation"
-              mode="normal"
-            />
-          </filter>
-        </defs>
-      </svg>
-      
-      {/* Glass element with backdrop filter */}
-      <div
-        className="absolute inset-0 ring-1 ring-foreground/10"
-        style={{
-          borderRadius,
-          backdropFilter: `url(#${filterId.current})`,
-          WebkitBackdropFilter: `url(#${filterId.current})`,
-          boxShadow: `
-            0 4px 12px rgba(0, 0, 0, 0.15),
-            0 2px 24px rgba(0, 0, 0, 0.2) inset,
-            0 -2px 24px rgba(255, 255, 255, 0.15) inset
-          `,
-        }}
-      />
+      <div className={`relative w-full h-full ${animationClass}`} style={{ borderRadius }}>
+        {/* SVG Filter Definition */}
+        <svg 
+          colorInterpolationFilters="sRGB" 
+          style={{ display: 'none' }}
+        >
+          <defs>
+            <filter id={filterId.current}>
+              {/* Combined displacement (edge refraction + center magnification) */}
+              <feImage
+                href={displacementMapUrl}
+                x="0"
+                y="0"
+                width={width}
+                height={height}
+                result="displacement_map"
+                preserveAspectRatio="none"
+              />
+              <feDisplacementMap
+                in="SourceGraphic"
+                in2="displacement_map"
+                scale={refractionScale}
+                xChannelSelector="R"
+                yChannelSelector="G"
+                result="displaced"
+              />
+              
+              {/* Saturation boost for displaced content */}
+              <feColorMatrix
+                in="displaced"
+                type="saturate"
+                result="displaced_saturated"
+                values={saturation.toString()}
+              />
+              
+              {/* Specular highlight layer */}
+              <feImage
+                href={specularMapUrl}
+                x="0"
+                y="0"
+                width={width}
+                height={height}
+                result="specular_layer"
+                preserveAspectRatio="none"
+              />
+              <feComposite
+                in="displaced_saturated"
+                in2="specular_layer"
+                operator="in"
+                result="specular_saturated"
+              />
+              <feComponentTransfer in="specular_layer" result="specular_faded">
+                <feFuncA type="linear" slope={specularOpacity} />
+              </feComponentTransfer>
+              
+              {/* Blend layers */}
+              <feBlend
+                in="specular_saturated"
+                in2="displaced"
+                mode="normal"
+                result="withSaturation"
+              />
+              <feBlend
+                in="specular_faded"
+                in2="withSaturation"
+                mode="normal"
+              />
+            </filter>
+          </defs>
+        </svg>
+        
+        {/* Glass element with backdrop filter */}
+        <div
+          className="absolute inset-0 ring-1 ring-foreground/10"
+          style={{
+            borderRadius,
+            backdropFilter: `url(#${filterId.current})`,
+            WebkitBackdropFilter: `url(#${filterId.current})`,
+            boxShadow: `
+              0 4px 12px rgba(0, 0, 0, 0.15),
+              0 2px 24px rgba(0, 0, 0, 0.2) inset,
+              0 -2px 24px rgba(255, 255, 255, 0.15) inset
+            `,
+          }}
+        />
+      </div>
     </div>
   );
 };

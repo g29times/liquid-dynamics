@@ -115,7 +115,7 @@ All colors MUST be HSL.
 }
 
 .animate-liquid-press {
-  animation: liquid-press 0.15s ease-out forwards;
+  animation: liquid-press 0.8s ease-out forwards;
 }
 
 .animate-liquid-release {
