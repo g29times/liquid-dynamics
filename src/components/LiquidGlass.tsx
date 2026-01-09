@@ -271,7 +271,7 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
       setAnimationClass('animate-liquid-release');
       
       // Then trigger wobbles after release animation (disabled here)
-      setTimeout(() => triggerWobble(0, false), 500);
+      setTimeout(() => triggerWobble(0, false), 800);
     }
   }, [isDragging, triggerWobble]);
 

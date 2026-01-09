@@ -86,10 +86,10 @@ const Index = () => {
 
           {/* Liquid Glass Lens */}
           <LiquidGlass
-            width={210}
-            height={150}
-            initialX={180}
-            initialY={80}
+            width={180}
+            height={180}
+            initialX={210}
+            initialY={50}
             refractionScale={refractionLevel * 100}
             specularOpacity={specularOpacity}
             saturation={saturation}
