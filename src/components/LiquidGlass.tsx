@@ -260,12 +260,14 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
 
   const handleMouseDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragging(true);
     setAnimationClass('animate-liquid-press');
     
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     
+    // Store the offset from click position to element position
     dragStartRef.current = {
       x: clientX - position.x,
       y: clientY - position.y,
@@ -284,10 +286,15 @@ const LiquidGlass: React.FC<LiquidGlassProps> = ({
     const parentRect = containerRef.current.parentElement?.getBoundingClientRect();
     if (!parentRect) return;
     
-    const newX = Math.max(0, Math.min(parentRect.width - width, clientX - dragStartRef.current.x - parentRect.left));
-    const newY = Math.max(0, Math.min(parentRect.height - height, clientY - dragStartRef.current.y - parentRect.top));
+    // Calculate new position relative to parent, accounting for initial click offset
+    const newX = clientX - dragStartRef.current.x;
+    const newY = clientY - dragStartRef.current.y;
     
-    setPosition({ x: newX, y: newY });
+    // Clamp to parent bounds
+    const clampedX = Math.max(0, Math.min(parentRect.width - width, newX));
+    const clampedY = Math.max(0, Math.min(parentRect.height - height, newY));
+    
+    setPosition({ x: clampedX, y: clampedY });
   }, [isDragging, width, height]);
 
   const handleMouseUp = useCallback(() => {
