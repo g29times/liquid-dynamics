@@ -6,7 +6,7 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   // 设置 GitHub Pages 发布路径（仓库名）
-  base: "/liquid-dynamics/",
+  base: "/liquid-dynamics",
   server: {
     host: "::",
     port: 8080,
